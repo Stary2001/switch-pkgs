@@ -1,0 +1,12 @@
+diff -Naur libiconv-1.15-a/srclib/getprogname.c libiconv-1.15-b/srclib/getprogname.c
+--- libiconv-1.15-a/srclib/getprogname.c      2018-03-23 18:14:14.534016900 +0000
++++ libiconv-1.15-b/srclib/getprogname.c    2018-03-10 16:28:17.418286500 +0000
+@@ -144,7 +144,8 @@
+     }
+   return p;
+ # else
+-#  error "getprogname module not ported to this OS"
++return "?";
++//#  error "getprogname module not ported to this OS"
+ # endif
+ }

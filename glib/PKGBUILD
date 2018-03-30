@@ -1,0 +1,52 @@
+# Maintainer: Ezekiel Bethel <stary@9net.org>
+
+pkgname=switch-libglib
+pkgver=2.54.3
+pkgrel=1
+pkgdesc='libglib port (for Nintendo Switch homebrew development)'
+arch=('any')
+url='https://wiki.gnome.org/Projects/GLib'
+license=('GPL')
+options=(!strip libtool staticlibs)
+depends=()
+source=('https://download.gnome.org/sources/glib/2.54/glib-2.54.3.tar.xz'
+glib.patch
+gthread-horizon.c
+switch.cache.orig
+)
+
+sha256sums=('963fdc6685dc3da8e5381dfb9f15ca4b5709b28be84d9d05a9bb8e446abac0a8'
+'SKIP'
+'SKIP'
+'SKIP'
+)
+
+prepare() {
+  cd glib-$pkgver/
+  patch -Np1 < $srcdir/glib.patch
+  cp $srcdir/gthread-horizon.c glib/gthread-horizon.c
+  autoreconf --force --install
+}
+
+build() {
+  cd glib-$pkgver/
+  cp $srcdir/switch.cache.orig ./switch.cache
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  export CPPFLAGS="$CPPFLAGS -DSWITCH"
+  ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
+    --disable-shared --enable-static --cache-file=switch.cache
+
+  make
+}
+
+package() {
+  cd glib-$pkgver/
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  make DESTDIR="$pkgdir" install
+}

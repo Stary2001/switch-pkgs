@@ -1,0 +1,979 @@
+diff -ur glib-2.54.3/config.h.in glib-2.54.3___/config.h.in
+--- glib-2.54.3/config.h.in	2018-03-28 22:44:01.755918200 +0100
++++ glib-2.54.3___/config.h.in	2018-03-28 22:43:34.332799500 +0100
+@@ -705,6 +705,9 @@
+ /* Define to 1 if strerror_r returns char *. */
+ #undef STRERROR_R_CHAR_P
+ 
++/* Use Horizon threads */
++#undef THREADS_HORIZON
++
+ /* Use no threads */
+ #undef THREADS_NONE
+ 
+diff -ur glib-2.54.3/configure.ac glib-2.54.3___/configure.ac
+--- glib-2.54.3/configure.ac	2018-03-28 22:43:59.416759000 +0100
++++ glib-2.54.3___/configure.ac	2018-03-28 22:43:34.343331300 +0100
+@@ -981,7 +981,7 @@
+                                                           [int qclass = C_IN;])],
+                                          [AC_MSG_RESULT([yes])
+                                           NAMESER_COMPAT_INCLUDE="#include <arpa/nameser_compat.h>"],
+-                                         [AC_MSG_ERROR([could not compile test program either way])])])])
++                                         [AC_MSG_RESULT([no])])])])
+   AC_SUBST(NAMESER_COMPAT_INCLUDE)
+ 
+   # We can't just use AC_CHECK_FUNC/AC_CHECK_LIB here. Bug 586150
+@@ -1009,7 +1009,7 @@
+                                         [res_query("test", 0, 0, (void *)0, 0);],
+                                         [AC_MSG_RESULT([in -lbind])
+                                          NETWORK_LIBS="-lbind $NETWORK_LIBS"],
+-                                        [AC_MSG_ERROR(not found)])])
++                                        [AC_MSG_RESULT(no)])])
+                LIBS="$save_libs"])
+   AC_CHECK_FUNC(socket, :, AC_CHECK_LIB(socket, socket,
+ 				        [NETWORK_LIBS="-lsocket $NETWORK_LIBS"],
+@@ -1883,6 +1883,14 @@
+         esac
+ fi
+ 
++if test "x$with_threads" = xyes || test "x$with_threads" = xhorizon; then
++        case $host in
++                aarch64-none-elf)
++                have_threads=horizon
++                ;;
++        esac
++fi
++
+ if test "x$have_threads" = xno; then
+         AC_MSG_RESULT(none available)
+         AC_MSG_ERROR($THREAD_NO_IMPLEMENTATION)
+@@ -2072,13 +2080,18 @@
+ ], [test x$have_threads = xwin32], [
+            AC_DEFINE([THREADS_WIN32], [1], [Use w32 threads])
+ 	   g_threads_impl="WIN32"
+-], [
++], [test x$have_threads = xhorizon], [
++           AC_DEFINE([THREADS_HORIZON], [1], [Use Horizon threads])
++     g_threads_impl="HORIZON"
++],
++[
+            AC_DEFINE([THREADS_NONE], [1], [Use no threads])
+ 	   g_threads_impl="NONE"
+            G_THREAD_LIBS=error
+ ])
+ AM_CONDITIONAL(THREADS_POSIX, [test "$g_threads_impl" = "POSIX"])
+ AM_CONDITIONAL(THREADS_WIN32, [test "$g_threads_impl" = "WIN32"])
++AM_CONDITIONAL(THREADS_HORIZON, [test "$g_threads_impl" = "HORIZON"])
+ AM_CONDITIONAL(THREADS_NONE, [test "$g_threads_impl" = "NONE"])
+ 
+ if test "x$G_THREAD_LIBS" = xerror; then
+diff -ur glib-2.54.3/gio/glocalfile.c glib-2.54.3___/gio/glocalfile.c
+--- glib-2.54.3/gio/glocalfile.c	2018-03-28 22:43:55.792812800 +0100
++++ glib-2.54.3___/gio/glocalfile.c	2018-03-28 22:43:34.351331000 +0100
+@@ -2800,7 +2800,7 @@
+   const gchar *name;
+   GDir *dir;
+ 
+-#ifdef AT_FDCWD
++#if defined AT_FDCWD && !defined SWITCH
+   {
+     /* If this fails, we want to preserve the errno from fopendir() */
+     DIR *dirp;
+diff -ur glib-2.54.3/gio/gnetworking.h.in glib-2.54.3___/gio/gnetworking.h.in
+--- glib-2.54.3/gio/gnetworking.h.in	2018-03-28 22:43:57.851597600 +0100
++++ glib-2.54.3___/gio/gnetworking.h.in	2018-03-28 22:43:34.355315400 +0100
+@@ -38,17 +38,17 @@
+ 
+ #include <sys/types.h>
+ 
++#include <sys/socket.h>
+ #include <netdb.h>
+ #include <netinet/in.h>
+ #include <netinet/tcp.h>
+-#include <resolv.h>
+-#include <sys/socket.h>
+-#include <sys/un.h>
++//#include <resolv.h>
++//#include <sys/un.h>
+ #include <net/if.h>
+ 
+ #include <arpa/inet.h>
+-#include <arpa/nameser.h>
+-@NAMESER_COMPAT_INCLUDE@
++//#include <arpa/nameser.h>
++//@NAMESER_COMPAT_INCLUDE@
+ 
+ #ifndef T_SRV
+ #define T_SRV 33
+diff -ur glib-2.54.3/gio/gsocketaddress.c glib-2.54.3___/gio/gsocketaddress.c
+--- glib-2.54.3/gio/gsocketaddress.c	2018-03-28 22:43:56.098528200 +0100
++++ glib-2.54.3___/gio/gsocketaddress.c	2018-03-28 22:43:34.363322800 +0100
+@@ -35,7 +35,7 @@
+ #include "glibintl.h"
+ #include "gioenumtypes.h"
+ 
+-#ifdef G_OS_UNIX
++#if defined G_OS_UNIX && !defined(SWITCH)
+ #include "gunixsocketaddress.h"
+ #endif
+ 
+@@ -265,7 +265,7 @@
+       return sockaddr;
+     }
+ 
+-#ifdef G_OS_UNIX
++#if defined G_OS_UNIX && !defined(SWITCH)
+   if (family == AF_UNIX)
+     {
+       struct sockaddr_un *addr = (struct sockaddr_un *) native;
+diff -ur glib-2.54.3/gio/gsocket.c glib-2.54.3___/gio/gsocket.c
+--- glib-2.54.3/gio/gsocket.c	2018-03-28 22:43:54.087140200 +0100
++++ glib-2.54.3___/gio/gsocket.c	2018-03-28 22:43:34.374350300 +0100
+@@ -48,7 +48,7 @@
+ # include <sys/filio.h>
+ #endif
+ 
+-#ifdef G_OS_UNIX
++#if defined G_OS_UNIX && !defined(SWITCH)
+ #include <sys/uio.h>
+ #endif
+ 
+@@ -2226,7 +2226,7 @@
+   native_addr = g_inet_address_to_bytes (group);
+   if (g_inet_address_get_family (group) == G_SOCKET_FAMILY_IPV4)
+     {
+-#ifdef HAVE_IP_MREQN
++#if defined HAVE_IP_MREQN && !defined(SWITCH)
+       struct ip_mreqn mc_req;
+ #else
+       struct ip_mreq mc_req;
+@@ -2235,7 +2235,7 @@
+       memset (&mc_req, 0, sizeof (mc_req));
+       memcpy (&mc_req.imr_multiaddr, native_addr, sizeof (struct in_addr));
+ 
+-#ifdef HAVE_IP_MREQN
++#if defined HAVE_IP_MREQN && !defined(SWITCH)
+       if (iface)
+         mc_req.imr_ifindex = if_nametoindex (iface);
+       else
+@@ -2269,6 +2269,7 @@
+     }
+   else if (g_inet_address_get_family (group) == G_SOCKET_FAMILY_IPV6)
+     {
++#ifndef SWITCH
+       struct ipv6_mreq mc_req_ipv6;
+ 
+       memset (&mc_req_ipv6, 0, sizeof (mc_req_ipv6));
+@@ -2283,6 +2284,9 @@
+       optname = join_group ? IPV6_JOIN_GROUP : IPV6_LEAVE_GROUP;
+       result = setsockopt (socket->priv->fd, IPPROTO_IPV6, optname,
+ 			   &mc_req_ipv6, sizeof (mc_req_ipv6));
++#else
++      result = -1;
++#endif
+     }
+   else
+     g_return_val_if_reached (FALSE);
+@@ -3971,7 +3975,7 @@
+   #endif
+ }
+ 
+-#ifndef G_OS_WIN32
++#if !defined G_OS_WIN32 && !defined SWITCH
+ 
+ /* Unfortunately these have to be macros rather than inline functions due to
+  * using alloca(). */
+@@ -4328,7 +4332,7 @@
+       vectors = &one_vector;
+     }
+ 
+-#ifndef G_OS_WIN32
++#if !defined G_OS_WIN32 && !defined SWITCH
+   {
+     GOutputMessage output_message;
+     struct msghdr msg;
+@@ -4379,7 +4383,7 @@
+ 
+     return result;
+   }
+-#else
++#elif defined(G_OS_WIN32)
+   {
+     struct sockaddr_storage addr;
+     guint addrlen;
+@@ -4459,6 +4463,10 @@
+ 
+     return bytes_sent;
+   }
++#else
++ g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
++                             _("Stubbed on switch"));
++  return -1;
+ #endif
+ }
+ 
+@@ -4557,7 +4565,7 @@
+   if (num_messages == 0)
+     return 0;
+ 
+-#if !defined (G_OS_WIN32) && defined (HAVE_SENDMMSG)
++#if !defined (G_OS_WIN32) && defined (HAVE_SENDMMSG) && !defined(SWITCH)
+   {
+     struct mmsghdr *msgvec;
+     gint i, num_sent;
+@@ -4793,7 +4801,7 @@
+       vectors = &one_vector;
+     }
+ 
+-#ifndef G_OS_WIN32
++#if !defined G_OS_WIN32 && !defined SWITCH
+   {
+     GInputMessage input_message;
+     struct msghdr msg;
+@@ -4861,7 +4869,7 @@
+ 
+     return result;
+   }
+-#else
++#elif defined G_OS_WIN32
+   {
+     struct sockaddr_storage addr;
+     int addrlen;
+@@ -4945,6 +4953,10 @@
+ 
+     return bytes_received;
+   }
++#else
++ g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
++                             _("Stubbed on switch"));
++  return -1;
+ #endif
+ }
+ 
+@@ -5063,7 +5075,7 @@
+   if (num_messages == 0)
+     return 0;
+ 
+-#if !defined (G_OS_WIN32) && defined (HAVE_RECVMMSG)
++#if !defined (G_OS_WIN32) && defined (HAVE_RECVMMSG) && !defined(SWITCH)
+   {
+     struct mmsghdr *msgvec;
+     guint i, num_received;
+diff -ur glib-2.54.3/gio/gthreadedresolver.c glib-2.54.3___/gio/gthreadedresolver.c
+--- glib-2.54.3/gio/gthreadedresolver.c	2018-03-28 22:43:58.011348900 +0100
++++ glib-2.54.3___/gio/gthreadedresolver.c	2018-03-28 22:43:34.383337000 +0100
+@@ -35,6 +35,7 @@
+ #include "gsocketaddress.h"
+ #include "gsrvtarget.h"
+ 
++#ifndef SWITCH
+ 
+ G_DEFINE_TYPE (GThreadedResolver, g_threaded_resolver, G_TYPE_RESOLVER)
+ 
+@@ -955,3 +956,5 @@
+   addrinfo_hints.ai_socktype = SOCK_STREAM;
+   addrinfo_hints.ai_protocol = IPPROTO_TCP;
+ }
++
++#endif
+\ No newline at end of file
+diff -ur glib-2.54.3/gio/gunixmounts.c glib-2.54.3___/gio/gunixmounts.c
+--- glib-2.54.3/gio/gunixmounts.c	2018-03-28 22:43:51.970378000 +0100
++++ glib-2.54.3___/gio/gunixmounts.c	2018-03-28 22:43:34.392848400 +0100
+@@ -837,7 +837,18 @@
+ 
+   return return_list;
+ }
++#elif defined(SWITCH)
++static char *
++get_mtab_monitor_file (void)
++{
++  return NULL;
++}
+ 
++static GList *
++_g_get_unix_mounts (void)
++{
++  return NULL;
++}
+ /* Common code {{{2 */
+ #else
+ #error No _g_get_unix_mounts() implementation for system
+@@ -1355,7 +1366,12 @@
+ {
+   return _g_get_unix_mounts ();
+ }
+-
++#elif defined(SWITCH)
++static GList *
++_g_get_unix_mount_points (void)
++{
++  return NULL;
++}
+ /* Common code {{{2 */
+ #else
+ #error No g_get_mount_table() implementation for system
+diff -ur glib-2.54.3/gio/gunixsocketaddress.c glib-2.54.3___/gio/gunixsocketaddress.c
+--- glib-2.54.3/gio/gunixsocketaddress.c	2018-03-28 22:43:57.840587200 +0100
++++ glib-2.54.3___/gio/gunixsocketaddress.c	2018-03-28 22:43:34.400369600 +0100
+@@ -28,7 +28,7 @@
+ #include "glibintl.h"
+ #include "gnetworking.h"
+ 
+-
++#ifndef SWITCH
+ /**
+  * SECTION:gunixsocketaddress
+  * @short_description: UNIX GSocketAddress
+@@ -564,3 +564,4 @@
+   return FALSE;
+ #endif
+ }
++#endif
+\ No newline at end of file
+diff -ur glib-2.54.3/gio/Makefile.am glib-2.54.3___/gio/Makefile.am
+--- glib-2.54.3/gio/Makefile.am	2018-03-28 22:43:51.887819900 +0100
++++ glib-2.54.3___/gio/Makefile.am	2018-03-28 22:43:34.408354700 +0100
+@@ -793,7 +793,8 @@
+ gio-2.0.lib: libgio-2.0.la gio.def
+ 	$(AM_V_GEN) lib.exe -machine:@LIB_EXE_MACHINE_FLAG@ -name:libgio-2.0-$(LT_CURRENT_MINUS_AGE).dll -def:$(builddir)/gio.def -out:$@
+ 
+-bin_PROGRAMS = gio-querymodules glib-compile-schemas glib-compile-resources gsettings
++#bin_PROGRAMS = gio-querymodules glib-compile-schemas glib-compile-resources gsettings
++bin_PROGRAMS =
+ 
+ glib_compile_resources_LDADD = libgio-2.0.la 		\
+ 	$(top_builddir)/gobject/libgobject-2.0.la	\
+@@ -875,7 +876,7 @@
+ # ------------------------------------------------------------------------
+ # gdbus(1) tool
+ 
+-bin_PROGRAMS += gdbus
++#bin_PROGRAMS += gdbus
+ gdbus_SOURCES = gdbus-tool.c
+ gdbus_LDADD = libgio-2.0.la 				\
+ 	$(top_builddir)/gobject/libgobject-2.0.la	\
+@@ -887,7 +888,7 @@
+ if !OS_COCOA
+ # ------------------------------------------------------------------------
+ # gapplication(1) tool
+-bin_PROGRAMS += gapplication
++#bin_PROGRAMS += gapplication
+ gapplication_SOURCES = gapplication-tool.c
+ gapplication_LDADD = libgio-2.0.la 			\
+ 	$(top_builddir)/gobject/libgobject-2.0.la	\
+@@ -908,7 +909,7 @@
+ # ------------------------------------------------------------------------
+ # gresource tool
+ 
+-bin_PROGRAMS += gresource
++#bin_PROGRAMS += gresource
+ gresource_SOURCES = gresource-tool.c
+ gresource_CPPFLAGS = $(LIBELF_CFLAGS) $(AM_CPPFLAGS)
+ gresource_LDADD = libgio-2.0.la				\
+@@ -920,7 +921,7 @@
+ # ------------------------------------------------------------------------
+ # gio tool
+ 
+-bin_PROGRAMS += gio
++#bin_PROGRAMS += gio
+ gio_SOURCES = \
+ 	gio-tool.c					\
+ 	gio-tool.h					\
+diff -ur glib-2.54.3/glib/deprecated/gthread.h glib-2.54.3___/glib/deprecated/gthread.h
+--- glib-2.54.3/glib/deprecated/gthread.h	2018-03-28 22:43:48.266057700 +0100
++++ glib-2.54.3___/glib/deprecated/gthread.h	2018-03-28 22:43:34.415858800 +0100
+@@ -123,7 +123,7 @@
+ void     g_thread_foreach      (GFunc             thread_func,
+                                 gpointer          user_data);
+ 
+-#ifndef G_OS_WIN32
++#if !defined G_OS_WIN32 && !defined SWITCH
+ #include <sys/types.h>
+ #include <pthread.h>
+ #endif
+@@ -133,7 +133,7 @@
+ typedef struct
+ {
+   GMutex *mutex;
+-#ifndef G_OS_WIN32
++#if !defined G_OS_WIN32 && !defined SWITCH
+   /* only for ABI compatibility reasons */
+   pthread_mutex_t unused;
+ #endif
+@@ -162,7 +162,7 @@
+ 
+   /* ABI compat only */
+   union {
+-#ifdef G_OS_WIN32
++#if defined G_OS_WIN32 || defined SWITCH
+     void *owner;
+ #else
+     pthread_t owner;
+diff -ur glib-2.54.3/glib/gfileutils.c glib-2.54.3___/glib/gfileutils.c
+--- glib-2.54.3/glib/gfileutils.c	2018-03-28 22:43:50.584395800 +0100
++++ glib-2.54.3___/glib/gfileutils.c	2018-03-28 22:43:34.424886100 +0100
+@@ -417,7 +417,9 @@
+   
+   if ((test & G_FILE_TEST_IS_EXECUTABLE) && (access (filename, X_OK) == 0))
+     {
++#ifndef SWITCH
+       if (getuid () != 0)
++#endif
+ 	return TRUE;
+ 
+       /* For root, on some POSIX systems, access (filename, X_OK)
+@@ -430,10 +432,12 @@
+ 
+   if (test & G_FILE_TEST_IS_SYMLINK)
+     {
++#ifndef SWITCH
+       struct stat s;
+ 
+       if ((lstat (filename, &s) == 0) && S_ISLNK (s.st_mode))
+         return TRUE;
++#endif
+     }
+   
+   if (test & (G_FILE_TEST_IS_REGULAR |
+diff -ur glib-2.54.3/glib/giounix.c glib-2.54.3___/glib/giounix.c
+--- glib-2.54.3/glib/giounix.c	2018-03-28 22:43:51.453512800 +0100
++++ glib-2.54.3___/glib/giounix.c	2018-03-28 22:43:34.432889600 +0100
+@@ -184,10 +184,13 @@
+ {
+   GIOUnixChannel *unix_channel = (GIOUnixChannel *)channel;
+   gssize result;
+-
++#ifdef SWITCH
++  if (count > 32767) /* At least according to the Debian manpage for read */
++    count = 32767;
++#else
+   if (count > SSIZE_MAX) /* At least according to the Debian manpage for read */
+     count = SSIZE_MAX;
+-
++#endif
+  retry:
+   result = read (unix_channel->fd, buf, count);
+ 
+diff -ur glib-2.54.3/glib/glib-unix.c glib-2.54.3___/glib/glib-unix.c
+--- glib-2.54.3/glib/glib-unix.c	2018-03-28 22:43:51.380460200 +0100
++++ glib-2.54.3___/glib/glib-unix.c	2018-03-28 22:43:34.442898400 +0100
+@@ -84,6 +84,7 @@
+                   int      flags,
+                   GError **error)
+ {
++#ifndef SWITCH
+   int ecode;
+ 
+   /* We only support FD_CLOEXEC */
+@@ -127,6 +128,9 @@
+       return g_unix_set_error_from_errno (error, saved_errno);
+     }
+   return TRUE;
++#else
++  return FALSE;
++#endif
+ }
+ 
+ /**
+diff -ur glib-2.54.3/glib/gmain.c glib-2.54.3___/glib/gmain.c
+--- glib-2.54.3/glib/gmain.c	2018-03-28 22:43:49.946750100 +0100
++++ glib-2.54.3___/glib/gmain.c	2018-03-28 22:43:34.452886300 +0100
+@@ -5026,6 +5026,7 @@
+ static void
+ dispatch_unix_signals_unlocked (void)
+ {
++  #ifndef SWITCH
+   gboolean pending[NSIG];
+   GSList *node;
+   gint i;
+@@ -5111,7 +5112,7 @@
+             }
+         }
+     }
+-
++  #endif
+ }
+ 
+ static void
+@@ -5191,6 +5192,7 @@
+ static void
+ ref_unix_signal_handler_unlocked (int signum)
+ {
++  #ifndef SWITCH
+   /* Ensure we have the worker context */
+   g_get_worker_context ();
+   unix_signal_refcount[signum]++;
+@@ -5206,11 +5208,13 @@
+ #endif
+       sigaction (signum, &action, NULL);
+     }
++  #endif
+ }
+ 
+ static void
+ unref_unix_signal_handler_unlocked (int signum)
+ {
++  #ifndef SWITCH
+   unix_signal_refcount[signum]--;
+   if (unix_signal_refcount[signum] == 0)
+     {
+@@ -5220,6 +5224,7 @@
+       sigemptyset (&action.sa_mask);
+       sigaction (signum, &action, NULL);
+     }
++  #endif
+ }
+ 
+ GSource *
+@@ -5342,6 +5347,7 @@
+ GSource *
+ g_child_watch_source_new (GPid pid)
+ {
++#ifndef SWITCH
+   GSource *source;
+   GChildWatchSource *child_watch_source;
+ 
+@@ -5369,6 +5375,9 @@
+ #endif /* G_OS_WIN32 */
+ 
+   return source;
++#else
++  return NULL;
++#endif
+ }
+ 
+ /**
+@@ -5763,7 +5772,7 @@
+   if (g_once_init_enter (&initialised))
+     {
+       /* mask all signals in the worker thread */
+-#ifdef G_OS_UNIX
++#if defined G_OS_UNIX && !defined SWITCH
+       sigset_t prev_mask;
+       sigset_t all;
+ 
+@@ -5772,7 +5781,7 @@
+ #endif
+       glib_worker_context = g_main_context_new ();
+       g_thread_new ("gmain", glib_worker_main, NULL);
+-#ifdef G_OS_UNIX
++#if defined G_OS_UNIX && !defined SWITCH
+       pthread_sigmask (SIG_SETMASK, &prev_mask, NULL);
+ #endif
+       g_once_init_leave (&initialised, TRUE);
+diff -ur glib-2.54.3/glib/grand.c glib-2.54.3___/glib/grand.c
+--- glib-2.54.3/glib/grand.c	2018-03-28 22:43:49.893711700 +0100
++++ glib-2.54.3___/glib/grand.c	2018-03-28 22:43:34.460912100 +0100
+@@ -214,9 +214,16 @@
+  * 
+  * Returns: the new #GRand
+  */
++#ifdef SWITCH
++#include <switch/kernel/svc.h>
++#endif
++
+ GRand* 
+ g_rand_new (void)
+ {
++#ifdef SWITCH
++  u64 sys_seeds[2];
++#endif
+   guint32 seed[4];
+ #ifdef G_OS_UNIX
+   static gboolean dev_urandom_exists = TRUE;
+@@ -255,11 +262,20 @@
+ 
+   if (!dev_urandom_exists)
+     {  
++      #ifndef SWITCH
+       g_get_current_time (&now);
+       seed[0] = now.tv_sec;
+       seed[1] = now.tv_usec;
+       seed[2] = getpid ();
+       seed[3] = getppid ();
++      #else
++        svcGetInfo(&sys_seeds[0], 11, 0, 0);
++        svcGetInfo(&sys_seeds[1], 11, 0, 1);
++        seed[0] = sys_seeds[0] & 0xffffffff;
++        seed[1] = (sys_seeds[0] & 0xffffffff00000000) >> 32;
++        seed[2] = sys_seeds[1] & 0xffffffff;
++        seed[3] = (sys_seeds[1] & 0xffffffff00000000) >> 32;
++      #endif
+     }
+ #else /* G_OS_WIN32 */
+   /* rand_s() is only available since Visual Studio 2005 and
+diff -ur glib-2.54.3/glib/gslice.c glib-2.54.3___/glib/gslice.c
+--- glib-2.54.3/glib/gslice.c	2018-03-28 22:43:51.117277000 +0100
++++ glib-2.54.3___/glib/gslice.c	2018-03-28 22:43:34.469633200 +0100
+@@ -407,7 +407,11 @@
+     sys_page_size = system_info.dwPageSize;
+   }
+ #else
++  #ifdef SWITCH
++  sys_page_size = 0x1000;
++  #else
+   sys_page_size = sysconf (_SC_PAGESIZE); /* = sysconf (_SC_PAGE_SIZE); = getpagesize(); */
++  #endif
+ #endif
+   mem_assert (sys_page_size >= 2 * LARGEALIGNMENT);
+   mem_assert ((sys_page_size & (sys_page_size - 1)) == 0);
+diff -ur glib-2.54.3/glib/gspawn.c glib-2.54.3___/glib/gspawn.c
+--- glib-2.54.3/glib/gspawn.c	2018-03-28 22:43:49.959257700 +0100
++++ glib-2.54.3___/glib/gspawn.c	2018-03-28 22:43:34.478988100 +0100
+@@ -300,6 +300,7 @@
+               gint                 *exit_status,
+               GError              **error)     
+ {
++  #ifndef SWITCH
+   gint outpipe = -1;
+   gint errpipe = -1;
+   GPid pid;
+@@ -504,6 +505,10 @@
+ 
+       return TRUE;
+     }
++  #else
++    *exit_status = 1;
++    return FALSE;
++  #endif
+ }
+ 
+ /**
+@@ -1073,7 +1078,7 @@
+   gint fd;
+   gint res = 0;
+   
+-#ifdef HAVE_SYS_RESOURCE_H
++#if HAVE_SYS_RESOURCE_H && !defined(SWITCH)
+   struct rlimit rl;
+ #endif
+ 
+@@ -1115,8 +1120,9 @@
+    * rlimit trick */
+ 
+ #endif
+-  
+-#ifdef HAVE_SYS_RESOURCE_H
++
++#ifndef SWITCH
++#if HAVE_SYS_RESOURCE_H
+       
+   if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_max != RLIM_INFINITY)
+       open_max = rl.rlim_max;
+@@ -1127,7 +1133,7 @@
+   for (fd = 0; fd < open_max; fd++)
+       if ((res = cb (data, fd)) != 0)
+           break;
+-
++#endif
+   return res;
+ }
+ #endif
+@@ -1347,6 +1353,7 @@
+                       gint                 *standard_error,
+                       GError              **error)     
+ {
++#ifndef SWITCH
+   GPid pid = -1;
+   gint stdin_pipe[2] = { -1, -1 };
+   gint stdout_pipe[2] = { -1, -1 };
+@@ -1651,6 +1658,9 @@
+   close_and_invalidate (&stderr_pipe[1]);
+ 
+   return FALSE;
++#else
++  return FALSE;
++#endif
+ }
+ 
+ /* Based on execvp from GNU C Library */
+@@ -1660,6 +1670,7 @@
+                 gchar      **argv,
+                 gchar      **envp)
+ {
++#ifndef SWITCH
+   /* Count the arguments.  */
+   int argc = 0;
+   while (argv[argc])
+@@ -1687,6 +1698,7 @@
+     
+     g_free (new_argv);
+   }
++#endif
+ }
+ 
+ static gchar*
+@@ -1706,6 +1718,7 @@
+            gboolean     search_path,
+            gboolean     search_path_from_envp)
+ {
++#ifndef SWITCH
+   if (*file == '\0')
+     {
+       /* We check the simple case first. */
+@@ -1843,6 +1856,9 @@
+ 
+   /* Return the error from the last attempt (probably ENOENT).  */
+   return -1;
++#else
++  return -1;
++#endif
+ }
+ 
+ /**
+diff -ur glib-2.54.3/glib/gstdio.c glib-2.54.3___/glib/gstdio.c
+--- glib-2.54.3/glib/gstdio.c	2018-03-28 22:43:51.619129400 +0100
++++ glib-2.54.3___/glib/gstdio.c	2018-03-28 22:43:34.488506900 +0100
+@@ -274,8 +274,10 @@
+ 
+   errno = save_errno;
+   return retval;
+-#else
++#elif !defined(SWITCH)
+   return creat (filename, mode);
++#else
++  return -1;
+ #endif
+ }
+ 
+@@ -841,6 +843,8 @@
+ 
+   errno = save_errno;
+   return retval;
++#elif defined SWITCH 
++  return 0;
+ #else
+   return utime (filename, utb);
+ #endif
+diff -ur glib-2.54.3/glib/gstdio.h glib-2.54.3___/glib/gstdio.h
+--- glib-2.54.3/glib/gstdio.h	2018-03-28 22:43:50.986681000 +0100
++++ glib-2.54.3___/glib/gstdio.h	2018-03-28 22:43:34.492497700 +0100
+@@ -65,7 +65,7 @@
+ #define g_rename  rename
+ #define g_mkdir   mkdir
+ #define g_stat    stat
+-#define g_lstat   lstat
++#define g_lstat   stat
+ #define g_remove  remove
+ #define g_fopen   fopen
+ #define g_freopen freopen
+diff -ur glib-2.54.3/glib/gtestutils.c glib-2.54.3___/glib/gtestutils.c
+--- glib-2.54.3/glib/gtestutils.c	2018-03-28 22:43:50.878605200 +0100
++++ glib-2.54.3___/glib/gtestutils.c	2018-03-28 22:43:34.501523300 +0100
+@@ -964,7 +964,7 @@
+            * tests spawn a *lot* of them.  Avoid spamming system crash
+            * collection programs such as systemd-coredump and abrt.
+            */
+-#ifdef HAVE_SYS_RESOURCE_H
++#if defined HAVE_SYS_RESOURCE_H && !defined SWITCH
+           {
+             struct rlimit limit = { 0, 0 };
+             (void) setrlimit (RLIMIT_CORE, &limit);
+@@ -2814,7 +2814,7 @@
+ g_test_trap_fork (guint64        usec_timeout,
+                   GTestTrapFlags test_trap_flags)
+ {
+-#ifdef G_OS_UNIX
++#if defined G_OS_UNIX && !defined SWITCH
+   int stdout_pipe[2] = { -1, -1 };
+   int stderr_pipe[2] = { -1, -1 };
+   int errsv;
+diff -ur glib-2.54.3/glib/gthread.c glib-2.54.3___/glib/gthread.c
+--- glib-2.54.3/glib/gthread.c	2018-03-28 22:43:50.944651200 +0100
++++ glib-2.54.3___/glib/gthread.c	2018-03-28 22:43:34.510010100 +0100
+@@ -1037,7 +1037,7 @@
+ 
+   if (count > 0)
+     return count;
+-#elif defined(_SC_NPROCESSORS_ONLN)
++#elif defined(_SC_NPROCESSORS_ONLN) && !defined(SWITCH)
+   {
+     int count;
+ 
+diff -ur glib-2.54.3/glib/gtimer.c glib-2.54.3___/glib/gtimer.c
+--- glib-2.54.3/glib/gtimer.c	2018-03-28 22:43:50.884608600 +0100
++++ glib-2.54.3___/glib/gtimer.c	2018-03-28 22:43:34.518035500 +0100
+@@ -236,6 +236,10 @@
+   return total;
+ }
+ 
++#ifdef SWITCH
++#include <switch/kernel/svc.h>
++#endif
++
+ /**
+  * g_usleep:
+  * @microseconds: number of microseconds to pause
+@@ -252,6 +256,8 @@
+ {
+ #ifdef G_OS_WIN32
+   Sleep (microseconds / 1000);
++#elif defined SWITCH
++  svcSleepThread(microseconds * 1000);
+ #else
+   struct timespec request, remaining;
+   request.tv_sec = microseconds / G_USEC_PER_SEC;
+diff -ur glib-2.54.3/glib/gutils.c glib-2.54.3___/glib/gutils.c
+--- glib-2.54.3/glib/gutils.c	2018-03-28 22:43:51.165307200 +0100
++++ glib-2.54.3___/glib/gutils.c	2018-03-28 22:43:34.527524300 +0100
+@@ -623,7 +623,7 @@
+     {
+       static UserDatabaseEntry e;
+ 
+-#ifdef G_OS_UNIX
++#if defined(G_OS_UNIX) && !defined(SWITCH)
+       {
+         struct passwd *pw = NULL;
+         gpointer buffer = NULL;
+@@ -2431,7 +2431,7 @@
+    * https://code.google.com/p/android-developer-preview/issues/detail?id=168
+    */
+   return issetugid ();
+-#elif defined(G_OS_UNIX)
++#elif defined(G_OS_UNIX) && !defined(SWITCH)
+   uid_t ruid, euid, suid; /* Real, effective and saved user ID's */
+   gid_t rgid, egid, sgid; /* Real, effective and saved group ID's */
+ 
+diff -ur glib-2.54.3/glib/Makefile.am glib-2.54.3___/glib/Makefile.am
+--- glib-2.54.3/glib/Makefile.am	2018-03-28 22:43:48.240040100 +0100
++++ glib-2.54.3___/glib/Makefile.am	2018-03-28 22:43:34.534529200 +0100
+@@ -214,6 +214,10 @@
+ else
+ if THREADS_POSIX
+ libglib_2_0_la_SOURCES += gthread-posix.c
++else
++if THREADS_HORIZON
++libglib_2_0_la_SOURCES += gthread-horizon.c
++endif
+ endif
+ endif
+ 
+@@ -425,7 +429,7 @@
+ 
+ if OS_UNIX
+ 
+-INSTALL_PROGS	+= gtester
++#INSTALL_PROGS	+= gtester
+ gtester_SOURCES	 = gtester.c
+ gtester_LDADD	 = libglib-2.0.la 
+ 
+diff -ur glib-2.54.3/gobject/Makefile.am glib-2.54.3___/gobject/Makefile.am
+--- glib-2.54.3/gobject/Makefile.am	2018-03-28 22:43:58.715212500 +0100
++++ glib-2.54.3___/gobject/Makefile.am	2018-03-28 22:43:34.539032400 +0100
+@@ -186,7 +186,8 @@
+ #
+ # programs to compile and install
+ #
+-bin_PROGRAMS = gobject-query
++#bin_PROGRAMS = gobject-query
++bin_PROGRAMS = 
+ bin_SCRIPTS = glib-mkenums glib-genmarshal
+ # source files
+ gobject_query_SOURCES = gobject-query.c
+diff -ur glib-2.54.3/tests/gobject/Makefile.am glib-2.54.3___/tests/gobject/Makefile.am
+--- glib-2.54.3/tests/gobject/Makefile.am	2018-03-28 22:43:44.848162700 +0100
++++ glib-2.54.3___/tests/gobject/Makefile.am	2018-03-28 22:43:34.543035700 +0100
+@@ -25,14 +25,14 @@
+ 	$(NULL)
+ 
+ # Don't install these ones, and keep them out of 'make check' because they take too long...
+-noinst_PROGRAMS += \
+-	performance				\
+-	performance-threaded			\
+-	$(NULL)
++#noinst_PROGRAMS += \
++#	performance				\
++#	performance-threaded			\
++#	$(NULL)
+ 
+ # Run the 'installed' tests manually in-tree.
+ # This will cause them to be built even if installed tests are disabled.
+-check_PROGRAMS += $(installed_test_programs) $(installed_test_extra_programs)
++#check_PROGRAMS += $(installed_test_programs) $(installed_test_extra_programs)
+ TESTS += $(installed_test_programs)
+ AM_TESTS_ENVIRONMENT = \
+ 	LIBCHARSET_ALIAS_DIR=$(top_builddir)/glib/libcharset    \
+diff -ur glib-2.54.3/tests/Makefile.am glib-2.54.3___/tests/Makefile.am
+--- glib-2.54.3/tests/Makefile.am	2018-03-28 22:43:44.652024500 +0100
++++ glib-2.54.3___/tests/Makefile.am	2018-03-28 22:43:34.546537700 +0100
+@@ -8,15 +8,15 @@
+ AM_CFLAGS = -g
+ 
+ # Some random programs that appear not to be testcases and not used from any testcases
+-check_PROGRAMS += \
+-	testgdateparser				\
+-	unicode-normalize			\
+-	$(NULL)
++#check_PROGRAMS += \
++#	testgdateparser				\
++#	unicode-normalize			\
++#	$(NULL)
+ 
+ # So far, this is the only gtester-ified testcase here
+-test_programs = \
+-	testglib				\
+-	$(NULL)
++#test_programs = \
++#	testglib				\
++#	$(NULL)
+ 
+ # These are not yet gtester-ified, so mark them as for 'installed' only so we
+ # don't run them under the framework.  We will handle them manually below.
+@@ -55,10 +55,10 @@
+ 	$(NULL)
+ 
+ if OS_UNIX
+-test_programs += \
+-	spawn-test				\
+-	iochannel-test				\
+-	$(NULL)
++#test_programs += \
++#	spawn-test				\
++#	iochannel-test				\
++#	$(NULL)
+ 
+ # These don't appear to work installed and we don't want to run them under gtester either...
+ dist_uninstalled_test_extra_scripts = \
+@@ -76,7 +76,7 @@
+ 
+ # Run the 'installed' tests manually in-tree.
+ # This will cause them to be built even if installed tests are disabled.
+-check_PROGRAMS += $(installed_test_programs) $(installed_test_extra_programs)
++#check_PROGRAMS += $(installed_test_programs) $(installed_test_extra_programs)
+ check_SCRIPTS += $(installed_test_scripts)
+ TESTS += $(installed_test_programs) $(dist_uninstalled_test_extra_scripts)
+ AM_TESTS_ENVIRONMENT = \
+@@ -86,7 +86,7 @@
+ 	MALLOC_CHECK_=2						\
+ 	MALLOC_PERTURB_=$$(($${RANDOM:-256} % 256))
+ 
+-test_programs += module-test
++#test_programs += module-test
+ module_test_DEPENDENCIES = libmoduletestplugin_a.la libmoduletestplugin_b.la
+ module_test_LDADD = $(top_builddir)/gmodule/libgmodule-2.0.la $(LDADD)
+ module_test_LDFLAGS = $(G_MODULE_LDFLAGS)
+@@ -122,12 +122,12 @@
+ 	done
+ 
+ if HAVE_CXX
+-installed_test_programs += cxx-test
++#installed_test_programs += cxx-test
+ cxx_test_SOURCES = cxx-test.C
+ endif
+ 
+ if ENABLE_TIMELOOP
+-installed_test_programs += timeloop
++#installed_test_programs += timeloop
+ endif
+ 
+ if PLATFORM_WIN32
+@@ -138,7 +138,7 @@
+ module-test.exp: module-test.o
+ 	$(DLLTOOL) --output-exp module-test.exp module-test.o
+ 
+-installed_test_extra_programs = spawn-test-win32-gui
++#installed_test_extra_programs = spawn-test-win32-gui
+ 
+ spawn_test_win32_gui_LDFLAGS = -mwindows
+ 

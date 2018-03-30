@@ -1,0 +1,38 @@
+# Maintainer: Ezekiel Bethel <stary@9net.org>
+
+pkgname=switch-libffi
+pkgver=3.2.1
+pkgrel=1
+pkgdesc='libffi port (for Nintendo Switch homebrew development)'
+arch=('any')
+url='https://sourceware.org/libffi/'
+license=('BSD')
+options=(!strip libtool staticlibs)
+depends=()
+source=('ftp://sourceware.org/pub/libffi/libffi-3.2.1.tar.gz'
+)
+
+sha256sums=('d06ebb8e1d9a22d19e38d63fdb83954253f39bedc5d46232a05645685722ca37'
+)
+
+build() {
+  cd libffi-$pkgver
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
+    --disable-shared --enable-static
+
+  make
+}
+
+package() {
+  cd libffi-$pkgver
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  make DESTDIR="$pkgdir" install
+}
+

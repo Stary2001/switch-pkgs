@@ -1,0 +1,45 @@
+# Maintainer: Ezekiel Bethel <stary@9net.org>
+
+pkgname=switch-libiconv
+pkgver=1.15
+pkgrel=1
+pkgdesc='libiconv port (for Nintendo Switch homebrew development)'
+arch=('any')
+url='https://www.gnu.org/software/libiconv/'
+license=('GPL')
+options=(!strip libtool staticlibs)
+depends=()
+source=('https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.15.tar.gz'
+stub-gnulib-getprogname.patch
+)
+
+sha256sums=('ccf536620a45458d26ba83887a983b96827001e92a13847b45e4925cc8913178'
+'SKIP'
+)
+
+prepare() {
+  cd libiconv-$pkgver/
+  patch -Np1 -i "${srcdir}/stub-gnulib-getprogname.patch"
+}
+
+build() {
+  cd libiconv-$pkgver/
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  sed -i 's/HAVE_POSIX_SIGNALBLOCKING=0/HAVE_POSIX_SIGNALBLOCKING=1/g' configure
+  ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
+    --disable-shared --enable-static --disable-threads --disable-java --disable-native-java --disable-libasprintf
+
+  make
+}
+
+package() {
+  cd libiconv-$pkgver/
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  make DESTDIR="$pkgdir" install
+}

@@ -1,0 +1,36 @@
+# Maintainer: Ezekiel Bethel <stary@9net.org>
+
+pkgname=switch-libatomic
+pkgver=69.69.69
+pkgrel=1
+pkgdesc='just delete this tbh'
+arch=('any')
+url=''
+license=('GPL')
+options=(!strip libtool staticlibs)
+depends=()
+source=(
+atomic.tar
+)
+
+sha256sums=(
+'SKIP'
+)
+
+build() {
+  cd atomic/
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  make
+}
+
+package() {
+  cd atomic/
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  mkdir -p $pkgdir/opt/devkitpro/portlibs/switch/lib
+  cp lib/libatomic.a $pkgdir/opt/devkitpro/portlibs/switch/lib/
+}

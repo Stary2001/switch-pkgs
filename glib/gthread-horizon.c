@@ -732,7 +732,7 @@ g_cond_wait (GCond  *cond,
              GMutex *mutex)
 {
   gint status;
-  // TDOO: this is terrible
+  // TODO: this is terrible
   CondVar *real_cond = g_cond_get_impl (cond);
   real_cond->mutex = g_mutex_get_impl(mutex);
   if G_UNLIKELY ((status =  condvarWait(real_cond)) != 0)
@@ -838,7 +838,7 @@ g_cond_wait_until (GCond  *cond,
                    GMutex *mutex,
                    gint64  end_time)
 {
-  // TODO: can i just not use the mutex?s
+  // TODO: can i just not use the mutex?
 
   gint status;
   Result res;

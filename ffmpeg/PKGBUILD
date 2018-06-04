@@ -19,7 +19,7 @@ build() {
   source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
-  ./configure --sysroot=$PORTLIBS_PREFIX --arch=aarch64 --cross-prefix=aarch64-none-elf- --enable-cross-compile --target-os=none \
+  ./configure --prefix=$PORTLIBS_PREFIX --arch=aarch64 --cross-prefix=aarch64-none-elf- --enable-cross-compile --target-os=none \
     --disable-shared --enable-static --disable-everything --disable-network --enable-static --enable-swscale --disable-avfilter --disable-filters --disable-swresample --disable-avdevice --enable-decoder=h264 --enable-demuxer=h264 --enable-parser=h264 --disable-nvenc --disable-dxva2 --disable-cuda --disable-cuvid --disable-d3d11va --disable-hwaccels --disable-avx --disable-schannel --disable-securetransport
 
   make

@@ -1,0 +1,35 @@
+# Maintainer: Ezekiel Bethel <stary@9net.org>
+
+pkgname=switch-ffmpeg
+pkgver=4.0
+pkgrel=1
+pkgdesc='ffmpeg port (for Nintendo Switch homebrew development)'
+arch=('any')
+url='https://ffmpeg.org/'
+license=('GPL')
+options=(!strip libtool staticlibs)
+depends=()
+source=('https://ffmpeg.org/releases/ffmpeg-4.0.tar.xz')
+
+sha256sums=('ed945daf40b124e77a685893cc025d086f638bc703183460aff49508edb3a43f')
+
+build() {
+  cd ffmpeg-$pkgver
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  ./configure --sysroot=$PORTLIBS_PREFIX --arch=aarch64 --cross-prefix=aarch64-none-elf- --enable-cross-compile --target-os=none \
+    --disable-shared --enable-static --disable-everything --disable-network --enable-static --enable-swscale --disable-avfilter --disable-filters --disable-swresample --disable-avdevice --enable-decoder=h264 --enable-demuxer=h264 --enable-parser=h264 --disable-nvenc --disable-dxva2 --disable-cuda --disable-cuvid --disable-d3d11va --disable-hwaccels --disable-avx --disable-schannel --disable-securetransport
+
+  make
+}
+
+package() {
+  cd ffmpeg-$pkgver
+
+  source /opt/devkitpro/devkita64.sh
+  source /opt/devkitpro/switchvars.sh
+
+  make DESTDIR="$pkgdir" install
+}

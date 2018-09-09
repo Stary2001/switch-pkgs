@@ -1,6 +1,6 @@
 # Maintainer: Ezekiel Bethel <stary@9net.org>
 
-pkgname=switch-libpcre
+pkgname=switch-libpcre2
 pkgver=10.31
 pkgrel=1
 pkgdesc='libpcre2 port (for Nintendo Switch homebrew development)'

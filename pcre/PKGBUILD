@@ -25,9 +25,10 @@ build() {
   sed -i 's/bin_PROGRAMS += .*//' Makefile.am
   sed -i 's/TESTS += .*//' Makefile.am
   sed -i 's/noinst_PROGRAMS += .*//' Makefile.am
-
+	
+  autoreconf
   ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
-    --disable-shared --enable-static
+    --disable-shared --enable-static --enable-pcre16 --enable-pcre32
 
   make
 }

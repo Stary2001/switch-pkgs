@@ -19,7 +19,6 @@ sha256sums=(
 
 build() {
   cd atomic/
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   make
@@ -28,7 +27,6 @@ build() {
 package() {
   cd atomic/
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   mkdir -p $pkgdir/opt/devkitpro/portlibs/switch/lib

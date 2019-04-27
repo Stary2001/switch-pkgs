@@ -25,7 +25,6 @@ prepare() {
 build() {
   cd libiconv-$pkgver/
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   sed -i 's/HAVE_POSIX_SIGNALBLOCKING=0/HAVE_POSIX_SIGNALBLOCKING=1/g' configure
@@ -38,7 +37,6 @@ build() {
 package() {
   cd libiconv-$pkgver/
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   make DESTDIR="$pkgdir" install

@@ -17,7 +17,6 @@ sha256sums=('e11ebd99dd23a7bccc9127d95d9978101b5f3cf0a6e7d25a1b1ca165a97166c4')
 build() {
   cd pcre2-$pkgver
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   # Disable building programs & tests.
@@ -35,7 +34,6 @@ build() {
 package() {
   cd pcre2-$pkgver
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   make DESTDIR="$pkgdir" install

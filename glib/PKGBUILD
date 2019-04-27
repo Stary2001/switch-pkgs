@@ -32,7 +32,6 @@ build() {
   cd glib-$pkgver/
   cp $srcdir/switch.cache.orig ./switch.cache
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   export CPPFLAGS="$CPPFLAGS -DSWITCH"
@@ -45,7 +44,6 @@ build() {
 package() {
   cd glib-$pkgver/
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   make DESTDIR="$pkgdir" install

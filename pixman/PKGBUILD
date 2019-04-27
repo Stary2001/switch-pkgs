@@ -24,7 +24,6 @@ prepare() {
 build() {
   cd pixman-$pkgver/
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
@@ -36,7 +35,6 @@ build() {
 package() {
   cd pixman-$pkgver/
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   make DESTDIR="$pkgdir" install

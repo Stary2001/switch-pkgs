@@ -18,7 +18,6 @@ sha256sums=('3da4f6bd79685648ecf46dab51d66fcdddc156f41ed07e580a696a38ac61d48f'
 build() {
   cd gettext-$pkgver/gettext-runtime
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   # Disable building programs & tests.
@@ -36,7 +35,6 @@ build() {
 package() {
   cd gettext-$pkgver/gettext-runtime
 
-  source /opt/devkitpro/devkita64.sh
   source /opt/devkitpro/switchvars.sh
 
   make DESTDIR="$pkgdir" install

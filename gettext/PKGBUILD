@@ -26,6 +26,7 @@ build() {
   sed -i 's/HAVE_POSIX_SIGNALBLOCKING=0/HAVE_POSIX_SIGNALBLOCKING=1/g' configure
   sed -i 's/HAVE_POSIX_SIGNALBLOCKING=0/HAVE_POSIX_SIGNALBLOCKING=1/g' gnulib-m4/signalblocking.m4
 
+  autoreconf -f -i .
   ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
     --disable-shared --enable-static --disable-threads --disable-java --disable-native-java --disable-libasprintf
 
@@ -38,4 +39,5 @@ package() {
   source /opt/devkitpro/switchvars.sh
 
   make DESTDIR="$pkgdir" install
+  rm $pkgdir/$PORTLIBS_PREFIX/bin
 }

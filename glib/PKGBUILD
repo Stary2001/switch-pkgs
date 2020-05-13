@@ -8,15 +8,13 @@ arch=('any')
 url='https://wiki.gnome.org/Projects/GLib'
 license=('GPL')
 options=(!strip libtool staticlibs)
-depends=()
+depends=(switch-libffi switch-libiconv switch-gettext-runtime)
 source=('https://download.gnome.org/sources/glib/2.54/glib-2.54.3.tar.xz'
 glib.patch
-gthread-horizon.c
 switch.cache.orig
 )
 
 sha256sums=('963fdc6685dc3da8e5381dfb9f15ca4b5709b28be84d9d05a9bb8e446abac0a8'
-'SKIP'
 'SKIP'
 'SKIP'
 )
@@ -24,7 +22,6 @@ sha256sums=('963fdc6685dc3da8e5381dfb9f15ca4b5709b28be84d9d05a9bb8e446abac0a8'
 prepare() {
   cd glib-$pkgver/
   patch -Np1 < $srcdir/glib.patch
-  cp $srcdir/gthread-horizon.c glib/gthread-horizon.c
   autoreconf --force --install
 }
 
@@ -34,6 +31,9 @@ build() {
 
   source /opt/devkitpro/switchvars.sh
 
+  export CFLAGS="$CFLAGS -g"
+  export CXXFLAGS="$CXXFLAGS -g"
+  export LDFLAGS="$LDFLAGS -g"
   export CPPFLAGS="$CPPFLAGS -DSWITCH"
   ./configure --prefix=$PORTLIBS_PREFIX --host=aarch64-none-elf \
     --disable-shared --enable-static --cache-file=switch.cache
